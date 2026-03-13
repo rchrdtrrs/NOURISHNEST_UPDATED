@@ -1,12 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from .views import (
-    DietaryTagViewSet,
-    InventoryItemViewSet,
-    UndoView,
-    UserHistoryListView,
-)
+from .views import (DietaryTagViewSet,InventoryItemViewSet,UndoView,UserHistoryListView,)
 
 router = DefaultRouter()
 router.register(r'tags', DietaryTagViewSet, basename='dietary-tag')

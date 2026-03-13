@@ -3,64 +3,21 @@ from django.db import models
 
 
 class Recipe(models.Model):
-    """Stores recipes, including AI-generated ones."""
     
     name = models.CharField(max_length=300)
     description = models.TextField(blank=True)
-    instructions = models.TextField(
-        help_text="Step-by-step cooking instructions"
-    )
-    ingredients = models.ManyToManyField(
-        'inventory.InventoryItem',
-        blank=True,
-        related_name='used_in_recipes',
-        help_text="Linked inventory items used in this recipe"
-    )
-    ingredients_text = models.JSONField(
-        default=list,
-        help_text="List of ingredient strings with quantities"
-    )
-    tags = models.ManyToManyField(
-        'inventory.DietaryTag',
-        blank=True,
-        related_name='recipes'
-    )
-    generated_by_llm = models.BooleanField(
-        default=False,
-        help_text="Whether this recipe was AI-generated"
-    )
-    nutrition_info = models.JSONField(
-        default=dict,
-        blank=True,
-        help_text="Nutritional information: calories, protein, carbs, fat, etc."
-    )
-    match_score = models.FloatField(
-        default=0.0,
-        help_text="Score indicating how well this matches user's inventory (0-1)"
-    )
+    instructions = models.TextField(help_text="Step-by-step cooking instructions")
+    ingredients_text = models.JSONField(default=list,help_text="List of ingredient strings with quantities")
+    tags = models.ManyToManyField('inventory.DietaryTag',blank=True,related_name='recipes')
+    generated_by_llm = models.BooleanField(default=False,help_text="Whether this recipe was AI-generated")
+    nutrition_info = models.JSONField(default=dict,blank=True,help_text="Nutritional information: calories, protein, carbs, fat, etc.")
+    match_score = models.FloatField(default=0.0,help_text="Score indicating how well this matches user's inventory (0-1)")
     prep_time_minutes = models.PositiveIntegerField(null=True, blank=True)
     cook_time_minutes = models.PositiveIntegerField(null=True, blank=True)
     servings = models.PositiveIntegerField(default=2)
-    difficulty = models.CharField(
-        max_length=20,
-        choices=[
-            ('easy', 'Easy'),
-            ('medium', 'Medium'),
-            ('hard', 'Hard'),
-        ],
-        default='medium'
-    )
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='created_recipes'
-    )
-    is_public = models.BooleanField(
-        default=False,
-        help_text="Whether this recipe is visible to the community"
-    )
+    difficulty = models.CharField(max_length=20,choices=[('easy', 'Easy'),('medium', 'Medium'),('hard', 'Hard'),],default='medium')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.SET_NULL,null=True,blank=True,related_name='created_recipes')
+    is_public = models.BooleanField(default=False,help_text="Whether this recipe is visible to the community")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -83,26 +40,10 @@ class Recipe(models.Model):
 
 
 class RecipeFork(models.Model):
-    """Tracks when users fork/customize existing recipes."""
-    
-    original_recipe = models.ForeignKey(
-        Recipe,
-        on_delete=models.CASCADE,
-        related_name='forks'
-    )
-    forked_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='forked_recipes'
-    )
-    custom_ingredients = models.JSONField(
-        default=list,
-        help_text="Modified ingredients list"
-    )
-    custom_instructions = models.TextField(
-        blank=True,
-        help_text="Custom modifications to the original instructions"
-    )
+    original_recipe = models.ForeignKey(Recipe,on_delete=models.CASCADE,related_name='forks')
+    forked_by = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.CASCADE,related_name='forked_recipes')
+    custom_ingredients = models.JSONField(default=list,help_text="Modified ingredients list")
+    custom_instructions = models.TextField(blank=True,help_text="Custom modifications to the original instructions")
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -115,19 +56,21 @@ class RecipeFork(models.Model):
         return f"{self.forked_by.email}'s fork of {self.original_recipe.name}"
 
 
-class MealHistory(models.Model):
-    """Tracks cooked meals and feedback for adaptation and rewards."""
+class RecipeGenerationUsage(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.CASCADE,related_name='generation_usage')
+    date = models.DateField()
+    count = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
 
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='meal_history'
-    )
-    recipe = models.ForeignKey(
-        Recipe,
-        on_delete=models.CASCADE,
-        related_name='meal_history'
-    )
+    class Meta:
+        unique_together = ['user', 'date']
+        indexes = [models.Index(fields=['user', 'date']),]
+
+
+class MealHistory(models.Model):
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.CASCADE,related_name='meal_history')
+    recipe = models.ForeignKey(Recipe,on_delete=models.CASCADE,related_name='meal_history')
     cooked_at = models.DateTimeField(auto_now_add=True)
     rating = models.PositiveIntegerField(null=True, blank=True)
     notes = models.TextField(blank=True)
