@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { TagSelect } from './TagSelect'
-import type { InventoryItem } from '@/types/inventory.types'
+import type { InventoryItem, CreateInventoryItemPayload } from '@/types/inventory.types'
 
 const schema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -22,11 +22,22 @@ type FormData = z.infer<typeof schema>
 
 interface InventoryItemFormProps {
   item?: InventoryItem
-  onSubmit: (data: FormData) => void
+  onSubmit: (data: CreateInventoryItemPayload) => void
   isLoading?: boolean
 }
 
+function parseQuantity(qs?: string) {
+  if (!qs) return { q: 1, u: '' }
+  const match = qs.match(/^([\d.]+)\s*(.*)$/)
+  if (match) {
+    return { q: parseFloat(match[1]) || 1, u: match[2].trim() }
+  }
+  return { q: 1, u: qs }
+}
+
 export function InventoryItemForm({ item, onSubmit, isLoading }: InventoryItemFormProps) {
+  const initial = parseQuantity(item?.quantity)
+
   const {
     register,
     handleSubmit,
@@ -38,8 +49,8 @@ export function InventoryItemForm({ item, onSubmit, isLoading }: InventoryItemFo
     resolver: zodResolver(schema),
     defaultValues: {
       name: item?.name ?? '',
-      quantity: item?.quantity ?? 1,
-      unit: item?.unit ?? '',
+      quantity: initial.q,
+      unit: initial.u,
       perishable: item?.perishable ?? false,
       expiry_date: item?.expiry_date ?? null,
       tag_ids: item?.tags?.map((t) => t.id) ?? [],
@@ -48,10 +59,11 @@ export function InventoryItemForm({ item, onSubmit, isLoading }: InventoryItemFo
 
   useEffect(() => {
     if (item) {
+      const parsed = parseQuantity(item.quantity)
       reset({
         name: item.name,
-        quantity: item.quantity,
-        unit: item.unit,
+        quantity: parsed.q,
+        unit: parsed.u,
         perishable: item.perishable,
         expiry_date: item.expiry_date,
         tag_ids: item.tags.map((t) => t.id),
@@ -61,8 +73,16 @@ export function InventoryItemForm({ item, onSubmit, isLoading }: InventoryItemFo
 
   const perishable = watch('perishable')
 
+  const onFormSubmit = (data: FormData) => {
+    const { quantity, unit, ...rest } = data
+    onSubmit({
+      ...rest,
+      quantity: `${quantity} ${unit}`.trim(),
+    })
+  }
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="name">Name</Label>
         <Input id="name" {...register('name')} placeholder="e.g. Chicken breast" />

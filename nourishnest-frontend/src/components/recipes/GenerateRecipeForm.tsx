@@ -1,5 +1,5 @@
 import { useNavigate, Link } from 'react-router-dom'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, Controller, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
@@ -16,6 +16,7 @@ import { useInventoryItems } from '@/hooks/useInventory'
 const schema = z.object({
   use_inventory: z.boolean(),
   inventory_item_ids: z.array(z.number()),
+  inventory_item_quantities: z.record(z.string(), z.string()),
   cuisine_preference: z.string().optional(),
   max_prep_time: z.number().min(5).max(480).optional(),
   servings: z.number().min(1).max(20),
@@ -30,22 +31,48 @@ export function GenerateRecipeForm() {
   const { data: inventoryData } = useInventoryItems()
   const inventoryItems = inventoryData?.results ?? []
 
-  const { register, handleSubmit, control, watch, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, control, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       use_inventory: true,
       inventory_item_ids: [],
+      inventory_item_quantities: {},
       servings: 2,
     },
   })
 
   const useInventory = watch('use_inventory')
+  const selectedIds = useWatch({ control, name: 'inventory_item_ids' })
+  const quantities = useWatch({ control, name: 'inventory_item_quantities' })
+
+  const handleItemToggle = (itemId: number, itemQuantity: string, checked: boolean) => {
+    const currentIds = selectedIds ?? []
+    const currentQtys = quantities ?? {}
+
+    if (checked) {
+      setValue('inventory_item_ids', [...currentIds, itemId])
+      // Pre-fill with the stored quantity as the default override value
+      setValue('inventory_item_quantities', {
+        ...currentQtys,
+        [String(itemId)]: itemQuantity,
+      })
+    } else {
+      setValue('inventory_item_ids', currentIds.filter((id) => id !== itemId))
+      // Remove override entry when item is unchecked
+      const updated = { ...currentQtys }
+      delete updated[String(itemId)]
+      setValue('inventory_item_quantities', updated)
+    }
+  }
 
   const onSubmit = async (data: FormData) => {
     try {
+      const hasQuantities = Object.keys(data.inventory_item_quantities).length > 0
       const recipe = await generateMutation.mutateAsync({
         use_inventory: data.use_inventory,
         inventory_item_ids: data.use_inventory ? data.inventory_item_ids : undefined,
+        inventory_item_quantities:
+          data.use_inventory && hasQuantities ? data.inventory_item_quantities : undefined,
         cuisine_preference: data.cuisine_preference || undefined,
         max_prep_time: data.max_prep_time || undefined,
         servings: data.servings,
@@ -79,6 +106,7 @@ export function GenerateRecipeForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-xl">
+      {/* Pantry toggle */}
       <div className="flex items-center gap-3">
         <Controller
           control={control}
@@ -90,40 +118,63 @@ export function GenerateRecipeForm() {
         <Label htmlFor="use-inventory">Use my pantry ingredients</Label>
       </div>
 
+      {/* Pantry item list with per-item quantity override */}
       {useInventory && inventoryItems.length > 0 && (
         <div className="space-y-2">
           <Label>Select specific items (optional — leave blank to use all)</Label>
-          <div className="max-h-48 overflow-y-auto rounded border p-3 space-y-2">
-            <Controller
-              control={control}
-              name="inventory_item_ids"
-              render={({ field }) => (
-                <>
-                  {inventoryItems.map((item) => (
-                    <div key={item.id} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`item-${item.id}`}
-                        checked={field.value.includes(item.id)}
-                        onCheckedChange={(checked) => {
-                          field.onChange(
-                            checked
-                              ? [...field.value, item.id]
-                              : field.value.filter((id) => id !== item.id)
-                          )
+          <div className="max-h-64 overflow-y-auto rounded border p-3 space-y-3">
+            {inventoryItems.map((item) => {
+              const isChecked = (selectedIds ?? []).includes(item.id)
+              const storedQty = item.quantity
+              return (
+                <div key={item.id} className="flex items-center gap-3">
+                  <Checkbox
+                    id={`item-${item.id}`}
+                    checked={isChecked}
+                    onCheckedChange={(checked) =>
+                      handleItemToggle(item.id, storedQty, !!checked)
+                    }
+                  />
+                  <label
+                    htmlFor={`item-${item.id}`}
+                    className="text-sm cursor-pointer flex-1 min-w-0 truncate"
+                  >
+                    {item.name}
+                    {!isChecked && (
+                      <span className="text-muted-foreground ml-1">({storedQty})</span>
+                    )}
+                  </label>
+
+                  {isChecked && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span className="text-xs text-muted-foreground">Qty:</span>
+                      <Input
+                        className="h-7 w-28 text-sm px-2"
+                        value={(quantities ?? {})[String(item.id)] ?? storedQty}
+                        onChange={(e) => {
+                          setValue('inventory_item_quantities', {
+                            ...(quantities ?? {}),
+                            [String(item.id)]: e.target.value,
+                          })
                         }}
+                        placeholder={storedQty}
+                        aria-label={`Quantity for ${item.name}`}
                       />
-                      <label htmlFor={`item-${item.id}`} className="text-sm cursor-pointer">
-                        {item.name} ({item.quantity} {item.unit})
-                      </label>
                     </div>
-                  ))}
-                </>
-              )}
-            />
+                  )}
+                </div>
+              )
+            })}
           </div>
+          {(selectedIds ?? []).length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              You can adjust the quantity for each selected item above.
+            </p>
+          )}
         </div>
       )}
 
+      {/* Cuisine preference */}
       <div className="space-y-2">
         <Label htmlFor="cuisine_preference">Cuisine preference (optional)</Label>
         <Input
@@ -133,6 +184,7 @@ export function GenerateRecipeForm() {
         />
       </div>
 
+      {/* Prep time & servings */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="max_prep_time">Max prep time (minutes)</Label>
@@ -150,13 +202,20 @@ export function GenerateRecipeForm() {
         </div>
         <div className="space-y-2">
           <Label htmlFor="servings">Servings</Label>
-          <Input id="servings" type="number" min={1} max={20} {...register('servings', { valueAsNumber: true })} />
+          <Input
+            id="servings"
+            type="number"
+            min={1}
+            max={20}
+            {...register('servings', { valueAsNumber: true })}
+          />
           {errors.servings && (
             <p className="text-xs text-destructive">{errors.servings.message}</p>
           )}
         </div>
       </div>
 
+      {/* Additional instructions */}
       <div className="space-y-2">
         <Label htmlFor="additional_instructions">Additional instructions (optional)</Label>
         <Textarea

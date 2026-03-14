@@ -116,7 +116,15 @@ class RecipeViewSet(viewsets.ModelViewSet):
         items = list(items)
         far_future = timezone.now().date() + timedelta(days=FAR_FUTURE_DAYS)
         items.sort(key=lambda item: (not item.perishable,item.expiry_date is None,item.expiry_date or far_future,))
-        return [{'name': item.name, 'quantity': item.quantity} for item in items]
+
+        quantity_overrides = data.get('inventory_item_quantities', {})
+        return [
+            {
+                'name': item.name,
+                'quantity': quantity_overrides.get(str(item.id), item.quantity),
+            }
+            for item in items
+        ]
 
     def _create_recipe(self, result, user, match_score, tags_data):
         recipe = Recipe.objects.create(

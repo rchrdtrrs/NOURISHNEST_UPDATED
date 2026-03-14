@@ -47,6 +47,11 @@ class RecipeListSerializer(serializers.ModelSerializer):
 class RecipeGenerateSerializer(serializers.Serializer):
     use_inventory = serializers.BooleanField(default=True,help_text="Use items from user's inventory")
     inventory_item_ids = serializers.ListField(child=serializers.IntegerField(),required=False,help_text="Specific inventory item IDs to use")
+    inventory_item_quantities = serializers.DictField(
+        child=serializers.CharField(max_length=100),
+        required=False,
+        help_text="Map of inventory item ID (as string) to custom quantity, e.g. {'3': '200g'}"
+    )
     cuisine_preference = serializers.CharField(max_length=100,required=False,allow_blank=True)
     max_prep_time = serializers.IntegerField(required=False,min_value=5,max_value=480)
     servings = serializers.IntegerField(default=2,min_value=1,max_value=20)

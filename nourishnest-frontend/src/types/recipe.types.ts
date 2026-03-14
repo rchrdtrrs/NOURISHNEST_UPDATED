@@ -48,6 +48,7 @@ export interface MealLog {
 export interface GenerateRecipePayload {
   use_inventory?: boolean
   inventory_item_ids?: number[]
+  inventory_item_quantities?: Record<string, string>
   cuisine_preference?: string
   max_prep_time?: number
   servings?: number
