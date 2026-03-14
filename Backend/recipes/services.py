@@ -179,7 +179,7 @@ def get_banned_tags(user):
     base = getattr(user, 'base_profile', None)
     if not base:
         return set()
-    banned = list(base.allergies or []) + list(base.dietary_restrictions or [])
+    banned = list(base.allergies or [])
     return {str(t).strip() for t in banned if str(t).strip()}
 
 

@@ -1,15 +1,36 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .views import (RegisterView,LogoutView,UserProfileView,UserBaseProfileView,UserRewardsView,SubscriptionPlanListView,UpgradeSubscriptionView,)
+from .views import (
+    LoginView,
+    CookieTokenRefreshView,
+    RegisterView,
+    LogoutView,
+    UserProfileView,
+    UserBaseProfileView,
+    UserRewardsView,
+    SubscriptionPlanListView,
+    UpgradeSubscriptionView,
+    InitiatePayPalSubscriptionView,
+    ConfirmPayPalSubscriptionView,
+    CancelSubscriptionView,
+    PayPalWebhookView,
+    SubscriptionStatusView,
+    TransactionListView,
+)
 
 urlpatterns = [
     path('auth/register/', RegisterView.as_view(), name='auth-register'),
-    path('auth/login/', TokenObtainPairView.as_view(), name='auth-login'),
+    path('auth/login/', LoginView.as_view(), name='auth-login'),
     path('auth/logout/', LogoutView.as_view(), name='auth-logout'),
-    path('auth/token/refresh/', TokenRefreshView.as_view(), name='auth-token-refresh'),
+    path('auth/token/refresh/', CookieTokenRefreshView.as_view(), name='auth-token-refresh'),
     path('users/me/', UserProfileView.as_view(), name='user-profile'),
     path('users/profile/', UserBaseProfileView.as_view(), name='user-base-profile'),
     path('users/rewards/', UserRewardsView.as_view(), name='user-rewards'),
     path('subscription/plans/', SubscriptionPlanListView.as_view(), name='subscription-plans'),
     path('subscription/upgrade/', UpgradeSubscriptionView.as_view(), name='subscription-upgrade'),
+    path('subscription/paypal/initiate/', InitiatePayPalSubscriptionView.as_view(), name='paypal-initiate'),
+    path('subscription/paypal/confirm/', ConfirmPayPalSubscriptionView.as_view(), name='paypal-confirm'),
+    path('subscription/cancel/', CancelSubscriptionView.as_view(), name='subscription-cancel'),
+    path('subscription/paypal/webhook/', PayPalWebhookView.as_view(), name='paypal-webhook'),
+    path('subscription/status/', SubscriptionStatusView.as_view(), name='subscription-status'),
+    path('subscription/transactions/', TransactionListView.as_view(), name='subscription-transactions'),
 ]

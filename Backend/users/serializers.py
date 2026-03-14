@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
-from .models import SubscriptionPlan, UserBaseProfile, UserRewards
+from .models import SubscriptionPlan, UserBaseProfile, UserRewards, UserPayPalSubscription, PaymentTransaction
 
 User = get_user_model()
 
@@ -33,15 +33,17 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    subscription_tier = serializers.CharField(source='subscription_type', read_only=True)
+
     class Meta:
         model = User
         fields = [
             'id', 'email', 'username', 'first_name', 'last_name',
-            'subscription_type', 'is_premium',
+            'subscription_tier', 'is_premium',
             'date_joined', 'last_login'
         ]
         read_only_fields = [
-            'id', 'email', 'subscription_type', 'is_premium',
+            'id', 'email', 'subscription_tier', 'is_premium',
             'date_joined', 'last_login'
         ]
 
@@ -79,9 +81,11 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
 
 
 class SubscriptionPlanSerializer(serializers.ModelSerializer):
+    tier = serializers.CharField(source='plan_type', read_only=True)
+
     class Meta:
         model = SubscriptionPlan
-        fields = ['id', 'name', 'plan_type', 'features', 'price', 'description', 'is_active']
+        fields = ['id', 'name', 'tier', 'features', 'price', 'description', 'is_active']
         read_only_fields = ['id', 'is_active']
 
 
@@ -101,3 +105,33 @@ class UserRewardsSerializer(serializers.ModelSerializer):
         model = UserRewards
         fields = ['points', 'streak_count', 'last_cooked_date', 'badges', 'updated_at']
         read_only_fields = ['updated_at']
+
+
+class UserPayPalSubscriptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserPayPalSubscription
+        fields = ['status', 'start_time', 'next_billing_time', 'paypal_subscription_id']
+        read_only_fields = fields
+
+
+class ConfirmSubscriptionSerializer(serializers.Serializer):
+    subscription_id = serializers.CharField(required=True)
+    plan_id = serializers.IntegerField(required=True)
+
+    def validate_plan_id(self, value):
+        try:
+            SubscriptionPlan.objects.get(id=value, is_active=True)
+        except SubscriptionPlan.DoesNotExist:
+            raise serializers.ValidationError("Invalid or inactive subscription plan")
+        return value
+
+
+class CancelSubscriptionSerializer(serializers.Serializer):
+    reason = serializers.CharField(required=False, default='User requested cancellation')
+
+
+class PaymentTransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaymentTransaction
+        fields = ['id', 'paypal_transaction_id', 'paypal_subscription_id', 'amount', 'currency', 'status', 'created_at']
+        read_only_fields = fields

@@ -82,7 +82,7 @@ def process_meal_rewards(user, recipe, *, used_inventory_only: bool, rating=None
         badges.add('Budget Boss')
         rewards.badges = sorted(badges)
 
-    badges = evaluate_badges(rewards,rIecipe=recipe,used_inventory_only=used_inventory_only,)
+    badges = evaluate_badges(rewards,recipe=recipe,used_inventory_only=used_inventory_only,)
     rewards.badges = sorted(badges)
 
     rewards.save(update_fields=['points', 'streak_count', 'last_cooked_date', 'badges', 'updated_at'])

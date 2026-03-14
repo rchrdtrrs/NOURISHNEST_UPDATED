@@ -170,9 +170,13 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         history = MealHistory.objects.create(user=request.user,recipe=recipe,**serializer.validated_data,)
 
+        from users.services import calculate_meal_points
+        points_earned = calculate_meal_points(used_inventory_only=history.used_inventory_only,rating=history.rating,savings_estimate=history.savings_estimate,)
         process_meal_rewards(request.user,recipe,used_inventory_only=history.used_inventory_only,rating=history.rating,savings_estimate=history.savings_estimate,)
 
-        return Response(MealHistorySerializer(history).data,status=status.HTTP_201_CREATED,)
+        data = MealHistorySerializer(history).data
+        data['points_earned'] = points_earned
+        return Response(data,status=status.HTTP_201_CREATED,)
 
 
 class UserForkedRecipesView(generics.ListAPIView):
@@ -181,6 +185,14 @@ class UserForkedRecipesView(generics.ListAPIView):
 
     def get_queryset(self):
         return RecipeFork.objects.filter(forked_by=self.request.user,).select_related('original_recipe')
+
+
+class ForkDetailView(generics.RetrieveAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = RecipeForkSerializer
+
+    def get_queryset(self):
+        return RecipeFork.objects.filter(forked_by=self.request.user).select_related('original_recipe')
 
 
 class MealHistoryListView(generics.ListAPIView):
