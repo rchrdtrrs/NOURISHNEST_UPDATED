@@ -9,6 +9,8 @@ import type {
   UserSubscriptionStatus,
   PayPalInitiateResponse,
   PaymentTransaction,
+  RedeemRewardRequest,
+  RedeemRewardResponse,
 } from '@/types/user.types'
 
 export const usersApi = {
@@ -34,6 +36,11 @@ export const usersApi = {
 
   getRewards: async (): Promise<UserRewards> => {
     const res = await apiClient.get('/users/rewards/')
+    return res.data
+  },
+
+  redeemReward: async (data: RedeemRewardRequest): Promise<RedeemRewardResponse> => {
+    const res = await apiClient.post('/users/rewards/redeem/', data)
     return res.data
   },
 

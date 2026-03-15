@@ -15,6 +15,7 @@ from .views import (
     PayPalWebhookView,
     SubscriptionStatusView,
     TransactionListView,
+    RedeemRewardView,
 )
 
 urlpatterns = [
@@ -25,6 +26,7 @@ urlpatterns = [
     path('users/me/', UserProfileView.as_view(), name='user-profile'),
     path('users/profile/', UserBaseProfileView.as_view(), name='user-base-profile'),
     path('users/rewards/', UserRewardsView.as_view(), name='user-rewards'),
+    path('users/rewards/redeem/', RedeemRewardView.as_view(), name='redeem-reward'),
     path('subscription/plans/', SubscriptionPlanListView.as_view(), name='subscription-plans'),
     path('subscription/upgrade/', UpgradeSubscriptionView.as_view(), name='subscription-upgrade'),
     path('subscription/paypal/initiate/', InitiatePayPalSubscriptionView.as_view(), name='paypal-initiate'),

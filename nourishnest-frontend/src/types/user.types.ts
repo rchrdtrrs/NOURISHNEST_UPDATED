@@ -1,3 +1,5 @@
+import type { ComponentType } from 'react'
+
 export type SubscriptionTier = 'free' | 'premium' | 'pro'
 
 export interface User {
@@ -21,6 +23,9 @@ export interface UserProfile {
   fitness_goals: string[]
   budget_limit: number | null
   calorie_target: number | null
+  has_advanced_analytics?: boolean
+  has_ai_substitutions?: boolean
+  theme_slugs?: string[]
 }
 
 export interface UserRewards {
@@ -48,6 +53,47 @@ export interface UpdateUserPayload {
   username?: string
   first_name?: string
   last_name?: string
+}
+
+export interface UserProfilePayload {
+  height_cm?: number | null
+  weight_kg?: number | null
+  allergies?: string[]
+  dietary_restrictions?: string[]
+  fitness_goals?: string[]
+  budget_limit?: number | null
+  calorie_target?: number | null
+}
+
+// Reward System Types
+export type RewardType = 'advanced_analytics' | 'ai_substitutions' | 'theme' | 'chef_recipe' | 'badge'
+
+export interface RewardPerk {
+  id: string
+  type: RewardType
+  name: string
+  description: string
+  pointCost: number
+  icon: ComponentType<{ className?: string }>
+  value?: string // For theme slug, recipe ID, or badge name
+}
+
+export interface RedeemRewardRequest {
+  reward_type: RewardType
+  value?: string
+}
+
+export interface RedeemRewardResponse {
+  success: boolean
+  message: string
+  points_remaining: number
+  reward_type: RewardType
+  unlocked_item?: string
+}
+
+export interface RewardsStoreItem {
+  category: 'Premium Features' | 'Themes' | 'Recipes' | 'Badges' | 'Exclusive Content'
+  items: RewardPerk[]
 }
 
 export interface UpdateProfilePayload {

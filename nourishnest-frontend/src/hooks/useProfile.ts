@@ -4,6 +4,13 @@ import { usersApi } from '@/lib/api/users.api'
 import { queryKeys } from '@/lib/queryKeys'
 import type { UpdateUserPayload, UpdateProfilePayload } from '@/types/user.types'
 
+export function useProfile() {
+  return useQuery({
+    queryKey: queryKeys.userProfile(),
+    queryFn: usersApi.getProfile,
+  })
+}
+
 export function useUserProfile() {
   return useQuery({
     queryKey: queryKeys.userProfile(),

@@ -26,6 +26,8 @@ from .serializers import (
     ConfirmSubscriptionSerializer,
     CancelSubscriptionSerializer,
     PaymentTransactionSerializer,
+    RedeemRewardSerializer,
+    RewardRedemptionResponseSerializer,
 )
 from . import paypal_service
 
@@ -395,3 +397,217 @@ class TransactionListView(generics.ListAPIView):
 
     def get_queryset(self):
         return PaymentTransaction.objects.filter(user=self.request.user)
+
+
+class RedeemRewardView(APIView):
+    """
+    API endpoint for redeeming reward points for specific perks.
+    
+    Reward types and point costs:
+    - 'advanced_analytics': 100 points - Unlock advanced analytics features
+    - 'ai_substitutions': 100 points - Unlock AI ingredient substitutions
+    - 'theme': 50 points - Unlock a specific theme (requires theme slug in 'value')
+    - 'chef_recipe': 75 points - Unlock chef-curated recipe (requires recipe ID in 'value')
+    - 'badge': 30 points - Unlock a specific badge (requires badge name in 'value')
+    """
+    permission_classes = [IsAuthenticated]
+    
+    # Define point costs for each reward type
+    POINT_COSTS = {
+        'advanced_analytics': 100,
+        'ai_substitutions': 100,
+        'theme': 50,
+        'chef_recipe': 75,
+        'badge': 30,
+    }
+    
+    def post(self, request):
+        from .serializers import RedeemRewardSerializer, RewardRedemptionResponseSerializer
+        from recipes.models import Recipe
+        
+        serializer = RedeemRewardSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        reward_type = serializer.validated_data['reward_type']
+        value = serializer.validated_data.get('value', '')
+        
+        # Get user rewards
+        try:
+            user_rewards = request.user.rewards
+        except UserRewards.DoesNotExist:
+            user_rewards = UserRewards.objects.create(user=request.user)
+        
+        # Get user profile for feature unlocks
+        try:
+            user_profile = request.user.base_profile
+        except UserBaseProfile.DoesNotExist:
+            user_profile = UserBaseProfile.objects.create(user=request.user)
+        
+        # Calculate cost
+        point_cost = self.POINT_COSTS.get(reward_type)
+        
+        # Check if user has enough points
+        if user_rewards.points < point_cost:
+            return Response(
+                {
+                    'success': False,
+                    'message': f'Not enough points. You have {user_rewards.points} but need {point_cost}.',
+                    'points_remaining': user_rewards.points,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # Process redemption based on reward type
+        unlocked_item = None
+        
+        try:
+            if reward_type == 'advanced_analytics':
+                if user_profile.has_advanced_analytics:
+                    return Response(
+                        {
+                            'success': False,
+                            'message': 'Advanced analytics is already unlocked.',
+                            'points_remaining': user_rewards.points,
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                user_profile.has_advanced_analytics = True
+                user_profile.save(update_fields=['has_advanced_analytics', 'updated_at'])
+                unlocked_item = 'Advanced Analytics'
+            
+            elif reward_type == 'ai_substitutions':
+                if user_profile.has_ai_substitutions:
+                    return Response(
+                        {
+                            'success': False,
+                            'message': 'AI substitutions are already unlocked.',
+                            'points_remaining': user_rewards.points,
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                user_profile.has_ai_substitutions = True
+                user_profile.save(update_fields=['has_ai_substitutions', 'updated_at'])
+                unlocked_item = 'AI Ingredient Substitutions'
+            
+            elif reward_type == 'theme':
+                if not value:
+                    return Response(
+                        {
+                            'success': False,
+                            'message': 'Theme slug is required.',
+                            'points_remaining': user_rewards.points,
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                
+                # Add theme to user's unlocked themes
+                if value in user_profile.theme_slugs:
+                    return Response(
+                        {
+                            'success': False,
+                            'message': f'Theme "{value}" is already unlocked.',
+                            'points_remaining': user_rewards.points,
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                
+                user_profile.theme_slugs.append(value)
+                user_profile.save(update_fields=['theme_slugs', 'updated_at'])
+                unlocked_item = f'Theme: {value}'
+            
+            elif reward_type == 'chef_recipe':
+                if not value:
+                    return Response(
+                        {
+                            'success': False,
+                            'message': 'Recipe ID is required.',
+                            'points_remaining': user_rewards.points,
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                
+                try:
+                    recipe = Recipe.objects.get(id=int(value))
+                except (Recipe.DoesNotExist, ValueError):
+                    return Response(
+                        {
+                            'success': False,
+                            'message': 'Invalid recipe ID.',
+                            'points_remaining': user_rewards.points,
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                
+                # Check if already unlocked
+                if user_rewards.chef_curated_recipes.filter(id=recipe.id).exists():
+                    return Response(
+                        {
+                            'success': False,
+                            'message': f'Recipe "{recipe.name}" is already unlocked.',
+                            'points_remaining': user_rewards.points,
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                
+                user_rewards.chef_curated_recipes.add(recipe)
+                unlocked_item = f'Recipe: {recipe.name}'
+            
+            elif reward_type == 'badge':
+                if not value:
+                    return Response(
+                        {
+                            'success': False,
+                            'message': 'Badge name is required.',
+                            'points_remaining': user_rewards.points,
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                
+                # Check if badge already exists
+                existing_badges = [b['name'] for b in user_rewards.badges if isinstance(b, dict)]
+                if value in existing_badges:
+                    return Response(
+                        {
+                            'success': False,
+                            'message': f'Badge "{value}" is already unlocked.',
+                            'points_remaining': user_rewards.points,
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                
+                # Add badge to user's badges
+                user_rewards.badges.append({
+                    'name': value,
+                    'earned_at': str(__import__('django.utils.timezone', fromlist=['now']).now()),
+                    'earned': True
+                })
+                user_rewards.save(update_fields=['badges', 'updated_at'])
+                unlocked_item = f'Badge: {value}'
+        
+        except Exception as e:
+            logger.error(f"Error redeeming reward: {e}")
+            return Response(
+                {
+                    'success': False,
+                    'message': 'An error occurred while processing your reward.',
+                    'points_remaining': user_rewards.points,
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        
+        # Deduct points from user
+        user_rewards.points -= point_cost
+        user_rewards.save(update_fields=['points', 'updated_at'])
+        
+        # Prepare response
+        response_data = {
+            'success': True,
+            'message': f'Reward unlocked! You spent {point_cost} points.',
+            'points_remaining': user_rewards.points,
+            'reward_type': reward_type,
+        }
+        
+        if unlocked_item:
+            response_data['unlocked_item'] = unlocked_item
+        
+        return Response(response_data, status=status.HTTP_200_OK)

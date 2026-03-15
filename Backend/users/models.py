@@ -35,6 +35,9 @@ class UserBaseProfile(models.Model):
     fitness_goals = models.JSONField(default=list, blank=True)
     budget_limit = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     calorie_target = models.PositiveIntegerField(null=True, blank=True)
+    has_advanced_analytics = models.BooleanField(default=False, help_text="Unlocked via points redemption")
+    has_ai_substitutions = models.BooleanField(default=False, help_text="Unlocked via points redemption")
+    theme_slugs = models.JSONField(default=list, blank=True, help_text="List of unlocked themes")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -48,6 +51,7 @@ class UserRewards(models.Model):
     streak_count = models.PositiveIntegerField(default=0)
     last_cooked_date = models.DateField(null=True, blank=True)
     badges = models.JSONField(default=list, blank=True)
+    chef_curated_recipes = models.ManyToManyField('recipes.Recipe', blank=True, related_name='unlocked_by_users', help_text="Chef-curated recipes unlocked by user")
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):

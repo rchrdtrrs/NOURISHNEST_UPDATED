@@ -135,3 +135,47 @@ class PaymentTransactionSerializer(serializers.ModelSerializer):
         model = PaymentTransaction
         fields = ['id', 'paypal_transaction_id', 'paypal_subscription_id', 'amount', 'currency', 'status', 'created_at']
         read_only_fields = fields
+
+
+class RedeemRewardSerializer(serializers.Serializer):
+    """
+    Serializer for redeeming reward points for specific perks.
+    
+    Reward types:
+    - 'advanced_analytics': Unlock advanced analytics (100 points)
+    - 'ai_substitutions': Unlock AI ingredient substitutions (100 points)
+    - 'theme': Unlock a specific theme (50 points)
+    - 'chef_recipe': Unlock access to a chef-curated recipe (75 points)
+    - 'badge': Unlock a specific badge (30 points)
+    """
+    
+    reward_type = serializers.ChoiceField(
+        choices=['advanced_analytics', 'ai_substitutions', 'theme', 'chef_recipe', 'badge'],
+        required=True
+    )
+    value = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text="For theme/chef_recipe/badge - the slug/id/name of the reward"
+    )
+    
+    def validate(self, data):
+        reward_type = data.get('reward_type')
+        value = data.get('value', '')
+        
+        # Validate that 'value' is provided for types that need it
+        if reward_type in ['theme', 'chef_recipe', 'badge'] and not value:
+            raise serializers.ValidationError(
+                f"'{reward_type}' reward type requires a 'value' field"
+            )
+        
+        return data
+
+
+class RewardRedemptionResponseSerializer(serializers.Serializer):
+    """Response after successful reward redemption"""
+    success = serializers.BooleanField()
+    message = serializers.CharField()
+    points_remaining = serializers.IntegerField()
+    reward_type = serializers.CharField()
+    unlocked_item = serializers.CharField(required=False)
