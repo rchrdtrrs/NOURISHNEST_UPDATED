@@ -409,6 +409,7 @@ class RedeemRewardView(APIView):
     - 'theme': 50 points - Unlock a specific theme (requires theme slug in 'value')
     - 'chef_recipe': 75 points - Unlock chef-curated recipe (requires recipe ID in 'value')
     - 'badge': 30 points - Unlock a specific badge (requires badge name in 'value')
+    - 'recipe_generation': 20 points - Add one recipe generation attempt/prompt
     """
     permission_classes = [IsAuthenticated]
     
@@ -419,6 +420,7 @@ class RedeemRewardView(APIView):
         'theme': 50,
         'chef_recipe': 75,
         'badge': 30,
+        'recipe_generation': 20,
     }
     
     def post(self, request):
@@ -583,6 +585,23 @@ class RedeemRewardView(APIView):
                 })
                 user_rewards.save(update_fields=['badges', 'updated_at'])
                 unlocked_item = f'Badge: {value}'
+            
+            elif reward_type == 'recipe_generation':
+                from django.utils import timezone
+                from datetime import date
+                from recipes.models import RecipeGenerationUsage
+                
+                # Add one recipe generation attempt
+                today = date.today()
+                usage, created = RecipeGenerationUsage.objects.get_or_create(
+                    user=request.user,
+                    date=today,
+                    defaults={'count': 0}
+                )
+                usage.count += 1
+                usage.save()
+                
+                unlocked_item = f'Recipe Generation Attempt (Total today: {usage.count})'
         
         except Exception as e:
             logger.error(f"Error redeeming reward: {e}")

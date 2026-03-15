@@ -67,7 +67,7 @@ export interface UserProfilePayload {
 }
 
 // Reward System Types
-export type RewardType = 'advanced_analytics' | 'ai_substitutions' | 'theme' | 'chef_recipe' | 'badge'
+export type RewardType = 'advanced_analytics' | 'ai_substitutions' | 'theme' | 'chef_recipe' | 'badge' | 'recipe_generation'
 
 export interface RewardPerk {
   id: string

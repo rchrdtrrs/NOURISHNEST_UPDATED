@@ -40,6 +40,14 @@ const REWARD_PERKS: RewardPerk[] = [
     icon: Zap,
   },
   {
+    id: 'recipe-generation',
+    type: 'recipe_generation',
+    name: 'Recipe Generation Attempt',
+    description: 'Use AI to generate custom recipes based on your ingredients and preferences. One attempt per redemption.',
+    pointCost: 20,
+    icon: ChefHat,
+  },
+  {
     id: 'theme-dark',
     type: 'theme',
     name: 'Dark Khaki Theme',
@@ -348,6 +356,25 @@ export function RewardsStore() {
             )
           )}
         </div>
+      </div>
+
+      {/* AI Recipe Generation Section */}
+      <div>
+        <h2 className="mb-4 text-lg font-bold text-amber-950">AI Recipe Generation</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {REWARD_PERKS.filter((p) => p.type === 'recipe_generation').map((perk) => (
+            <RewardCard
+              key={perk.id}
+              perk={perk}
+              currentPoints={currentPoints}
+              isUnlocked={false}
+              onSelect={handleSelectPerk}
+            />
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-amber-700">
+          🤖 Generate custom recipes using AI! Each redemption gives you one attempt. Spend points to unlock as many recipe generation attempts as you need.
+        </p>
       </div>
 
       {/* Themes Section */}
