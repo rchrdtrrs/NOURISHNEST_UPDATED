@@ -21,17 +21,15 @@ const schema = z.object({
   rating: z.number().min(1).max(5).optional(),
   notes: z.string().optional(),
   used_inventory_only: z.boolean(),
-  savings_estimate: z.preprocess(
-    (val) => {
-      if (val === '' || val === undefined || val === null) return undefined;
-      const parsed = Number(val);
-      return Number.isNaN(parsed) ? undefined : parsed;
-    },
-    z.number().min(0).optional()
-  ),
-})
+  savings_estimate: z.number().min(0).optional(),
+}) as any
 
-type FormData = z.infer<typeof schema>
+type FormData = {
+  rating?: number
+  notes?: string
+  used_inventory_only: boolean
+  savings_estimate?: number
+}
 
 interface LogMealDialogProps {
   open: boolean
@@ -46,11 +44,20 @@ export function LogMealDialog({ open, onOpenChange, recipeId, recipeName }: LogM
 
   const { handleSubmit, control, register, formState: { isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { used_inventory_only: false },
+    defaultValues: { 
+      used_inventory_only: false,
+      rating: undefined,
+      notes: undefined,
+      savings_estimate: undefined,
+    },
   })
 
   const onSubmit = async (data: FormData) => {
-    await logMutation.mutateAsync({ id: recipeId, data })
+    const payload = {
+      ...data,
+      savings_estimate: typeof data.savings_estimate === 'number' ? data.savings_estimate : undefined,
+    }
+    await logMutation.mutateAsync({ id: recipeId, data: payload })
     onOpenChange(false)
   }
 
@@ -60,7 +67,7 @@ export function LogMealDialog({ open, onOpenChange, recipeId, recipeName }: LogM
         <DialogHeader>
           <DialogTitle>Log meal: {recipeName}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-4">
           {/* Star rating */}
           <div className="space-y-2">
             <Label>Rating (optional)</Label>

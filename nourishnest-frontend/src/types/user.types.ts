@@ -47,6 +47,7 @@ export interface SubscriptionPlan {
   tier: SubscriptionTier
   price: number
   features: string[]
+  description?: string
 }
 
 export interface UpdateUserPayload {
