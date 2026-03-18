@@ -28,6 +28,7 @@ PLANS = [
             'Meal streaks',
         ],
         'paypal_plan_id_env': 'PAYPAL_PLAN_ID_PREMIUM',
+        'paypal_plan_id_default': 'P-5B864563Y8096171GNG5IIQA',
     },
     {
         'name': 'Pro',
@@ -41,6 +42,7 @@ PLANS = [
             'Advanced analytics',
         ],
         'paypal_plan_id_env': 'PAYPAL_PLAN_ID_PRO',
+        'paypal_plan_id_default': 'P-7RW65567662052405NG5IJAI',
     },
 ]
 
@@ -52,7 +54,10 @@ class Command(BaseCommand):
         for plan_data in PLANS:
             paypal_plan_id = ''
             if plan_data['paypal_plan_id_env']:
-                paypal_plan_id = os.environ.get(plan_data['paypal_plan_id_env'], '')
+                paypal_plan_id = os.environ.get(
+                    plan_data['paypal_plan_id_env'],
+                    plan_data.get('paypal_plan_id_default', ''),
+                )
 
             plan, created = SubscriptionPlan.objects.get_or_create(
                 plan_type=plan_data['plan_type'],

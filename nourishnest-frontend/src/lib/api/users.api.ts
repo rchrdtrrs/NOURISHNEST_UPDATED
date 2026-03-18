@@ -46,7 +46,12 @@ export const usersApi = {
 
   getSubscriptionPlans: async (): Promise<SubscriptionPlan[]> => {
     const res = await apiClient.get('/subscription/plans/')
-    return Array.isArray(res.data) ? res.data : (res.data.results ?? [])
+    const payload = res.data
+    if (Array.isArray(payload)) return payload
+    if (Array.isArray(payload?.results)) return payload.results
+    if (Array.isArray(payload?.data)) return payload.data
+    if (Array.isArray(payload?.plans)) return payload.plans
+    return []
   },
 
   upgradeSubscription: async (planId: number): Promise<User> => {

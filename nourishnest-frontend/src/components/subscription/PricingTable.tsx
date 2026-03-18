@@ -108,6 +108,7 @@ export function PricingTable() {
   const { user } = useAuth()
   const { data: plans, isLoading } = useSubscriptionPlans()
   const [activePlan, setActivePlan] = useState<ActivePayPalPlan | null>(null)
+  const planList = Array.isArray(plans) ? plans : []
 
   if (isLoading) {
     return (
@@ -119,7 +120,7 @@ export function PricingTable() {
 
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-      {(plans ?? []).map((plan) => (
+      {planList.map((plan) => (
         <PlanCard
           key={plan.id}
           plan={plan}

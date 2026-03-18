@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { loadScript } from '@paypal/paypal-js'
+import { useMemo, useState } from 'react'
+import { PayPalButtons, PayPalScriptProvider, usePayPalScriptReducer } from '@paypal/react-paypal-js'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { useConfirmPayPalSubscription } from '@/hooks/useSubscription'
 
@@ -10,65 +10,114 @@ interface PayPalButtonProps {
 }
 
 export function PayPalButton({ paypalPlanId, planId, onSuccess }: PayPalButtonProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const clientId = import.meta.env.VITE_PAYPAL_CLIENT_ID ?? ''
+
+  const scriptOptions = useMemo(
+    () => ({
+      clientId,
+      vault: true,
+      intent: 'subscription',
+      components: 'buttons',
+    }),
+    [clientId],
+  )
+
+  if (!clientId) {
+    return (
+      <p className="text-sm text-destructive">
+        PayPal is not configured. Please set VITE_PAYPAL_CLIENT_ID.
+      </p>
+    )
+  }
+
+  return (
+    <PayPalScriptProvider options={scriptOptions}>
+      <PayPalSubscriptionButtons
+        paypalPlanId={paypalPlanId}
+        planId={planId}
+        onSuccess={onSuccess}
+      />
+    </PayPalScriptProvider>
+  )
+}
+
+function PayPalSubscriptionButtons({
+  paypalPlanId,
+  planId,
+  onSuccess,
+}: PayPalButtonProps) {
   const [error, setError] = useState<string | null>(null)
+  const [{ isPending, isRejected }] = usePayPalScriptReducer()
   const confirm = useConfirmPayPalSubscription()
 
-  useEffect(() => {
-    let isMounted = true
-
-    async function initPayPal() {
+  function stringifyPayPalError(err: unknown): string {
+    if (!err) return 'Unknown PayPal error'
+    if (typeof err === 'string') return err
+    if (typeof err === 'object') {
+      const maybeError = err as { message?: string; name?: string; details?: unknown; stack?: string }
+      if (maybeError.message) return maybeError.message
       try {
-        const paypal = await loadScript({
-          clientId: import.meta.env.VITE_PAYPAL_CLIENT_ID ?? '',
-          vault: true,
-          intent: 'subscription',
-        })
-
-        if (!isMounted || !paypal?.Buttons || !containerRef.current) return
-
-        setIsLoading(false)
-
-        const buttons = paypal.Buttons({
-          style: { shape: 'rect', color: 'gold', layout: 'vertical', label: 'subscribe' },
-          createSubscription: (_data: unknown, actions: { subscription: { create: (opts: { plan_id: string }) => Promise<string> } }) => {
-            return actions.subscription.create({ plan_id: paypalPlanId })
-          },
-          onApprove: async (data: { subscriptionID?: string | null }) => {
-            if (!data.subscriptionID) return
-            await confirm.mutateAsync({ subscriptionId: data.subscriptionID, planId })
-            onSuccess?.()
-          },
-          onError: () => {
-            setError('PayPal encountered an error. Please try again.')
-          },
-        })
-
-        if (containerRef.current) {
-          await buttons.render(containerRef.current)
-        }
+        return JSON.stringify(err)
       } catch {
-        if (isMounted) setError('Failed to load PayPal. Please refresh and try again.')
+        return maybeError.name ?? 'Unknown PayPal error'
       }
     }
+    return 'Unknown PayPal error'
+  }
 
-    initPayPal()
-    return () => { isMounted = false }
-  }, [paypalPlanId, planId]) // eslint-disable-line react-hooks/exhaustive-deps
+  function mapFriendlyPayPalError(detail: string): string {
+    if (detail.includes('RESOURCE_NOT_FOUND') || detail.includes('INVALID_RESOURCE_ID')) {
+      return 'This subscription plan does not belong to the current PayPal client ID. Use plan IDs created under the same sandbox app as VITE_PAYPAL_CLIENT_ID.'
+    }
+    return detail
+  }
 
   if (error) {
     return <p className="text-sm text-destructive">{error}</p>
   }
 
+  if (isRejected) {
+    return <p className="text-sm text-destructive">Failed to load PayPal. Please refresh and try again.</p>
+  }
+
   return (
     <div>
-      {isLoading && (
+      {isPending && (
         <div className="flex justify-center py-4">
           <LoadingSpinner />
         </div>
       )}
-      <div ref={containerRef} />
+      <PayPalButtons
+        style={{ shape: 'pill', color: 'black', layout: 'horizontal', label: 'subscribe' }}
+        forceReRender={[paypalPlanId]}
+        createSubscription={(_data, actions) => {
+          return actions.subscription.create({ plan_id: paypalPlanId })
+        }}
+        onApprove={async (data) => {
+          if (!data.subscriptionID) return
+          await confirm.mutateAsync({ subscriptionId: data.subscriptionID, planId })
+          onSuccess?.()
+        }}
+        onError={(err) => {
+          const detail = stringifyPayPalError(err)
+          const friendlyDetail = mapFriendlyPayPalError(detail)
+          console.error('PayPal subscription error', {
+            planId,
+            paypalPlanId,
+            detail,
+            friendlyDetail,
+            rawError: err,
+          })
+          setError(`PayPal encountered an error. ${friendlyDetail}`)
+        }}
+        onCancel={(data) => {
+          console.info('PayPal subscription cancelled by user', {
+            planId,
+            paypalPlanId,
+            data,
+          })
+        }}
+      />
     </div>
   )
 }

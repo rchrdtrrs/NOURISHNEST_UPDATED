@@ -167,7 +167,12 @@ export function LandingPage() {
     queryKey: queryKeys.subscriptionPlans(),
     queryFn: async () => {
       const res = await publicClient.get('/subscription/plans/')
-      return res.data as SubscriptionPlan[]
+      const payload = res.data
+      if (Array.isArray(payload)) return payload as SubscriptionPlan[]
+      if (Array.isArray(payload?.results)) return payload.results as SubscriptionPlan[]
+      if (Array.isArray(payload?.data)) return payload.data as SubscriptionPlan[]
+      if (Array.isArray(payload?.plans)) return payload.plans as SubscriptionPlan[]
+      return [] as SubscriptionPlan[]
     },
   })
 
